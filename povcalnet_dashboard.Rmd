@@ -1,0 +1,183 @@
+---
+title: "PovcalNet Dasboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+    theme: paper
+    source_code: embed
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(flexdashboard)
+library(data.table)
+library(ggplot2)
+library(plotly)
+library(reactable)
+
+pov_lines <- c(1.9, 3.2, 5.5)
+pcn <- purrr::map_dfr(.x = pov_lines, 
+                      .f = ~{
+                        povcalnetR::povcalnet(povline = .x)
+                      })   
+setDT(pcn)
+
+countries     <- pcn[, unique(countrycode)]
+welfare_type  <- pcn[, unique(datatype)]
+coverage_type <- pcn[, unique(coveragetype)]
+
+
+measures  <-
+  c(
+    "mean",
+    "headcount",
+    "povertygap",
+    "povertygapsq",
+    "watts",
+    "gini",
+    "median",
+    "mld",
+    "polarization",
+    "population"
+  ) 
+
+
+# input <- list(ct = "COL", pl = 1.9, ms = "headcount")
+
+```
+
+
+
+PovcalNet trends
+===========================================================
+
+Sidebar {.sidebar data-width=350}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput("ct", 
+            label = "Country:",
+            choices = countries,
+            selected = "COL")
+
+selectInput("pl", 
+            label    = "Poverty Lines",
+            choices  = pov_lines, 
+            selected = 1.9, 
+            multiple = TRUE)
+
+selectInput("ms", 
+            label    = "Measure",
+            choices  = measures, 
+            selected = "headcount", 
+            multiple = FALSE)
+
+selectInput("wt", 
+            label    = "Welfare type",
+            choices  = welfare_type, 
+            selected = NULL, 
+            multiple = FALSE)
+
+selectInput("cvt", 
+            label    = "Coverage type",
+            choices  = coverage_type, 
+            selected = NULL, 
+            multiple = FALSE)
+
+
+
+
+```
+
+
+Column {data-width=900 .tabset .tabset-fade}
+-----------------------------------------------------------------------
+### Trends
+
+```{r}
+DP <- reactive({
+  
+  if (input$ms == "headcount") {
+    
+    pl <- as.numeric(input$pl)
+    
+  } else {
+    pl <- 1.9
+  }
+  
+  
+  DP <- pcn[countrycode == input$ct & povertyline %in% pl]
+  
+  # this does not work because input$ms
+  # DP <- DP[, c("year", input$ms, "datatype", "coveragetype")]
+  
+  # DP <- DP[, list(year, datatype, coveragetype, get(input$ms))]
+  # setnames(DP, "V4", input$ms)
+  
+  
+  return(DP)
+  
+})
+
+ observeEvent(input$ct, {
+
+
+   wts  <- DP()[, unique(datatype)]
+   cvts <- DP()[, unique(coveragetype)]
+
+    updateSelectInput(
+      session,
+      "wt",
+      label    = "Welfare type",
+      choices  = wts,
+      selected = wts[1]
+    )
+
+    updateSelectInput(
+      session,
+      "cvt",
+      label    = "Coverage type",
+      choices  = cvts,
+      selected = cvts[1]
+    )
+
+  })
+ 
+ 
+DG <- reactive({
+  DG <- DP()[datatype == input$wt & coveragetype == input$cvt]
+  DG <- DG[,  list(year, get(input$ms))]
+  setnames(DG, "V2", input$ms)
+  return(DG)
+})
+
+```
+
+
+```{r}
+renderPlotly({
+  pr <- ggplot(data    = DP(), 
+               mapping = aes(x = year,
+                             y = get(input$ms))) +
+    geom_line() +
+    geom_point() +
+    labs(x        = "Year",
+       y        =  input$ms,
+       title    = paste0("Trend on ", input$ms)
+    ) +
+    theme_minimal()
+  
+  ggplotly(pr)
+})
+```
+
+### Table 
+
+```{r}
+renderReactable({
+  reactable(DG(), defaultPageSize = 20)
+})
+```
+
