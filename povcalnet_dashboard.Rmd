@@ -17,6 +17,24 @@ library(ggplot2)
 library(plotly)
 library(reactable)
 
+# library(pins)
+# my_key    <- Sys.getenv("connect_key")
+# my_server <- "http://w0lxopshyprd1b.worldbank.org:3939/"
+# my_server <- "w0lxopshyprd1b.worldbank.org"
+# 
+# board_register_rsconnect(server = my_server,
+#                          key    = my_key)
+# 
+# board_register_rsconnect(server = my_server)
+# 
+# df <- pin_get(name = "pcn",
+#               board = "rsconnect")
+# 
+# 
+# df <- pin_get("acastanedaa/pcn", board = "rsconnect")
+
+
+
 pov_lines <- c(1.9, 3.2, 5.5)
 pcn <- purrr::map_dfr(.x = pov_lines, 
                       .f = ~{
